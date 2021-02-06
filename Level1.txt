@@ -1,0 +1,72 @@
+movie-catalog-service 에서 유저 id 에 movie info 정보들을 준다
+
+1. Build moive catalog service
+2. movie info service API
+3. Ratings data service API
+4. Movie catalog service cal lthe otehr two services
+5. Implement a better way (Service discovery)
+
+
+<spring 시작하기>
+start.spring.io 접속
+
+버전 설정 java 11
+
+Dependcy - java spring web (여러개 더 추가 가능 지금은 간단한 파일로 시작)
+
+<IntelliJ>
+폴더 뷰 :  project 에서 package 변경
+예 ) ~Application 실행 -> localhost:8080 서버 실행
+
+<controller 만들기>
+catalog 정보를 가져오기 위한 controller 를 만들어야 한다 -> @RestController 필요
+
+Microservice 생태계에서 각 Service 들이 통신하기 위해선 다른 port가 필요(동시에 활성화가 되어 있어야함)
+-> src/main/resources/application.properties에서 port 정보 변경(기본이 8080)
+
+<정보 통신>
+<하드 코딩  방법>
+다른 service에서 정보를 가져오기 위해선 어떤 정보(형태)를 가져올지를 알아야 한다
+예 )
+catalog 서비스의 models 패키지에 rating 서비스의 rating class 복붙
+- 클라우드 환경에서 동적인 URL 대응 어렵다
+- 로드 밸런싱이 안 좋다.
+
+<비동기 방식> 
+WebClient -> 비동기 처리를 위한 클래스 -> porm.xml 에서 프로젝트 Dependcy 설정 변경/추가
+api 호출을 하고 결과를 기다리지 않고 다른 일을 할 수 있다.
+
+<API 결과 처리>
+API의 결과를 list로 반환하는 것은 좋지 않다. -> Object로 만들어서 반환하는 것이 좋다
+이유 : 
+1. 결과를 받아들이는 곳에서 List 정보를 핸들링하기 쉽지 않다.
+2. API를 변경하는 등의 작업에서 List 형태는 Object가 아니기 때문에 API 간 연동에서 문제가 발생할 수 있다.
+
+<Service discovery>
+정의 : 서비스들간 어떤 정보를 어떤 서비스와 통신할지를 알려준다.(URL 하드코딩 X)
+Spring cloud Client-side service discovery : 접근하고자 하는 서비스의 정보를 대신 전달
+
+<Spring Boot / Spring Cloud abstraction Layer>
+- Eureka
+- Hyterix 
+- Zuul
+- Ribbon
+
+<Eureka Server>
+- 마이크로서비스내 서비스들과 Client 둘 다 Eureka Client 이다.
+- Eureka Server를 통해 정보 전달 목적지 파악
+- 사용법
+	1. Start up a Eureka Server
+	2. Have microservices register (publish) using Eureka client
+	3. Have microservices locate(consume) using Eureka client
+
+<Eureka Server 실행 안될 때 밑의 코드 추가>
+server.port = 8761
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+
+- Eureka 를 통해 Client-side의 Load Balancing 이 가능하다(서비스에 부하를 분산)
+- Eureka Client(service)가 작동중인지 Server는 지속적으로 확인한다
+- Eureka Server 가 다운되면 Eureka Client 들은 cache 를 활용하여 통신(기존에 통신하던 서비스들의 정보)
+
+

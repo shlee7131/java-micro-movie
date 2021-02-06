@@ -1,0 +1,65 @@
+Fault Tolerance? 장애 허용 시스템 ,  Resilience? 탄력적 
+
+<외부 API CAll하기>
+www.themoviedb.org 에서 제공하는 api 사용해보기
+
+<Resilient 한 마이크로 서비스 만들기 >
+1. 시나리오 1 : 마이크로 서비스 인스턴스가 다운 => Use Multiple Serice(같은 기능을 하는 서비스 추가)
+2. 시나리오 2 : 마이크로 서비스 인스턴스의 속도가 느려짐 -> 이는 자바의 Thread (동기 프로그래밍) 개념 때문에 다른 서비스들까지 느려진다(연계)
+		-> 해결법 : 
+			1. Timeouts(오래 걸리는 Thread를 out) -> (빠른 Thread를 in하게 만든다) -> 불완전 해결법
+			2. Circuit Break - 작업이 오래걸리는 프로세스에 request 를 잠시 중단 -> 다른 일을 먼저 처리하도록 한다. + 해당 서비스 리커버리 기다리기
+
+<RestTemplate에 Timeout 주기>
+ -> 3초 제한을 걸어도 만약 1000개의 서비스가 모두 Timeout에 걸리면 3000초가 된다.
+-> Timeout으로 Thread를 out 시키는 것보다 새로운 request가 들어오는게 더 빠르고 많다.
+	ex. 3초에 3개의 request가 들어오는데 1개만 timeout
+
+<RestTemplate에 Circuit Break 주기 : Circuit breaker pattern >
+- Detect something is wrong
+- Take temporary steps to avoid the situation getting worse
+- Deactivate the "problem" compoenet so that it doesn't affect downstream components
+- can be reset to resume normal operation
+- 다른 마이크로 서비스를 부르는 모든 서비스에 circuit breaker 를 줄 수 있다.
+	ex. moive-catalog-service 에 circuit breaker 기능을 부여 ( 2개의 서비스를 호출하는 서비스)
+- Circuit break 언제 ? 트리거가 필요 -> 트리거는 어떻게 만드는가? => parameter 설정 필요
+	- 마지막 n 개의 스레드의 상태로 판단
+		- 총 몇 개의 스레드가 실패하였는지
+		- timeout 시간 설정 => 초과시 실패
+- Circuit 정상화 언제 ? => parameter 설정 필요 
+	- circuit break 발동 후 다시 시작
+
+- Circuit 은 멈췄는데 request를 안 받는 동안 어떤 일을 해야 하나?
+	- 계속 들어오는 request를 받아야 한다 => fallback 필요(circuit break 된 동안 실행)
+		- Throw error (Bad)
+		- fallback 'default' response (Good)
+		- Save previous responses (cache) and use that when possible (Best)
+
+- 왜 Circuit Breaker를 사용해야 하나?
+	- Failing fast 
+	- Fallback Functionality
+	- Automatic recovery
+
+<Circuit breaker 설계 패턴>
+1. When to break pattern
+2. What to do when circuit breaks
+3. When to resume requests
+
+<Hystrix>
+- Circuit breaker pattern을 손쉽게 활용할 수 있도록 implements
+- circuit break 를 위한 parameter 조절을 가능하게 한다.
+
+- Add the Maven spring-cloud-starter-netflix-hystrix dependency
+- Add @EnableCircuitBreaker to the application class
+- Add @HystrixCommand to methods that need circuit breakers
+- Configure Hytrix behavior
+
+- Hystrix는 해당 API Class가 아닌 Proxy class로 감싸고 Fallback 함수를 호출한다
+	-> 연계된(호출당하는) 다른 API 호출을 위한 Fallback 함수를 작성해줘야 한다(개별)
+	-> 하지만 외부 API 클래스와의 관계를 위한 Fallback 함수인 경우 결과가 기준 API Class로 전달되지 않느다.
+		-> Fall back 함수가 일어나는 영역은 Proxy Class이고 위의 결과는 API Class 가 아닌 Proxy Class로 전달되어진다.
+		-> 해당 API Class 내부간의 fallback은 무관
+		-> 외부 API Class 를 호출하는 Fallback 함수들은 새로운 Class 에 선언해야 한다.
+
+- Hystrix에서 각 프로세스에 ThreadPool 을 부여하여 공간을 분리하는 방버도 있다 (bulkhead pattern) -> 프로세스간 속도 침체 연관 x 
+
